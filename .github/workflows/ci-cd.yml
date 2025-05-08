@@ -37,3 +37,15 @@ jobs:
 
     - name: Push Docker Image
       run: docker push sakshivirhajobsearch/gym-html-app
+
+    - name: Deploy to Server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          docker pull sakshivirhajobsearch/gym-html-app
+          docker stop gym-html-app || true
+          docker rm gym-html-app || true
+          docker run -d -p 80:80 --name gym-html-app sakshivirhajobsearch/gym-html-app
