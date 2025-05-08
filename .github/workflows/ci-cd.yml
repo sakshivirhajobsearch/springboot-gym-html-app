@@ -2,36 +2,42 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
-    branches: ["main"]
+    branches: [ "main" ]
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: "17"
-          distribution: "temurin"
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
 
-      - name: Build with Maven
-        run: mvn clean install
+    - name: Build with Maven
+      run: mvn clean install
 
-      - name: Run Tests
-        run: mvn test
+    - name: Run Tests
+      run: mvn test
 
-      - name: Package App
-        run: mvn package
+    - name: Package App
+      run: mvn package
 
-      - name: Archive JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: springboot-gym-html-app
-          path: target/*.jar
+    - name: Archive JAR artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: springboot-gym-html-app
+        path: target/*.jar
 
+    # Deploy Locally on Port 8082 (for testing or local setup)
+    - name: Run Spring Boot App on localhost:8082
+      run: |
+        java -jar target/*.jar --server.port=8082
+      background: true  # Keep the process running in the background
