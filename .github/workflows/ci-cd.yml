@@ -37,3 +37,7 @@ jobs:
 
     - name: Push Docker Image
       run: docker push sakshivirhajobsearch/gym-html-app
+    
+    - name: Run container (for testing only)
+      run: docker run -d -p 8080:8080 sakshivirhajobsearch/gym-html-app
+
