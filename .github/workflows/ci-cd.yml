@@ -28,14 +28,11 @@ jobs:
           curl \
           gnupg \
           lsb-release
-
         sudo mkdir -p /etc/apt/keyrings
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-
         echo \
           "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
           $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
         sudo apt-get update
         sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
@@ -62,5 +59,7 @@ jobs:
     - name: Push Docker Image
       run: docker push sakshivirhajobsearch/gym-html-app
 
-    - name: Run Docker container (optional for testing)
-      run: docker run -d -p 8080:8080 sakshivirhajobsearch/gym-html-app
+    # NOTE: This step is for container testing on GitHub-hosted runner only.
+    # You cannot access http://localhost:8082 on your machine from GitHub Actions.
+    - name: Run Docker container (for CI testing only)
+      run: docker run -d -p 8082:8080 sakshivirhajobsearch/gym-html-app
