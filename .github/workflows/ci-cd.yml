@@ -2,64 +2,60 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-    - name: Set up Java 17
-      uses: actions/setup-java@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
       with:
-        distribution: 'temurin'
         java-version: '17'
+        distribution: 'temurin'
 
-    - name: Install Docker
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          ca-certificates \
-          curl \
-          gnupg \
-          lsb-release
-        sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-          $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-        sudo apt-get update
-        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    - name: Verify Docker installation
-      run: docker --version
+    - name: Cache Maven packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-maven
 
     - name: Build with Maven
-      run: mvn clean install
+      run: mvn clean install -DskipTests
 
-    - name: Test with Maven
+    - name: Run Tests
       run: mvn test
 
-    - name: Package with Maven
-      run: mvn package
+  docker:
+    runs-on: ubuntu-latest
+    needs: build
 
-    - name: Build Docker Image
-      run: docker build -t sakshivirhajobsearch/gym-html-app .
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-    - name: Login to DockerHub
-      env:
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      run: echo "Job123Job#" | docker login -u "sakshivirhajobsearch" --password-stdin
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-    - name: Push Docker Image
-      run: docker push sakshivirhajobsearch/gym-html-app
+    - name: Log in to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-    # NOTE: This step is for container testing on GitHub-hosted runner only.
-    # You cannot access http://localhost:8082 on your machine from GitHub Actions.
-    - name: Run Docker container (for CI testing only)
-      run: docker run -d -p 8082:8080 sakshivirhajobsearch/gym-html-app
+    - name: Build and Push Docker image
+      run: |
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app .
+        docker push ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app
+
+    - name: Run Container (Local Testing - Only useful in self-hosted runners)
+      if: runner.os == 'Linux'
+      run: |
+        docker run -d -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app
