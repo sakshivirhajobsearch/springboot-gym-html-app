@@ -27,10 +27,10 @@ jobs:
         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-maven
 
-    - name: Build with Maven
-      run: mvn clean package --file pom.xml
+    - name: Build with Maven (skip tests for packaging)
+      run: mvn clean package -DskipTests
 
-    - name: Run Tests
+    - name: Run Unit Tests
       run: mvn test
 
     - name: Set up Docker Buildx
@@ -47,7 +47,9 @@ jobs:
         docker build -t ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app .
         docker push ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app
 
-    - name: Run Container (Local Testing - Only useful in self-hosted runners)
+    - name: Run container for validation (self-hosted only)
       if: runner.os == 'Linux'
       run: |
-        docker run -d -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app
+        docker run -d -p 8080:8080 --name gym-app ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app
+        sleep 10
+        curl --fail http://localhost:8080 || (echo "App not reachable" && docker logs gym-app && exit 1)
