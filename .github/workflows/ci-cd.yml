@@ -33,11 +33,11 @@ jobs:
     - name: Run Tests
       run: mvn test
 
-    - name: Upload JAR as artifact
-      uses: actions/upload-artifact@v3
+    - name: Download JAR artifact
+      uses: actions/download-artifact@v2
       with:
         name: springboot-app
-        path: target/springboot-gym-html-app-0.0.1-SNAPSHOT.jar
+        path: target
 
   docker:
     runs-on: ubuntu-latest
