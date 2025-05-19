@@ -50,6 +50,7 @@ jobs:
     - name: Run container for validation (self-hosted only)
       if: runner.os == 'Linux'
       run: |
+        docker rm -f gym-app || true
         docker run -d -p 8080:8080 --name gym-app ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app
-        sleep 10
+        sleep 15
         curl --fail http://localhost:8080 || (echo "App not reachable" && docker logs gym-app && exit 1)
