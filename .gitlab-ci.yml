@@ -44,6 +44,9 @@ package:
 
 deploy:
   stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
   script:
     - docker build -t gym-app .
     - docker run -d -p 8080:8080 --name gym-app gym-app
@@ -53,3 +56,4 @@ deploy:
       done || (echo "App failed to start" && docker logs gym-app && exit 1)
   only:
     - main
+
