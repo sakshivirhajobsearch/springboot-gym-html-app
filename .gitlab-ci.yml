@@ -5,55 +5,82 @@ services:
 
 variables:
   DOCKER_DRIVER: overlay2
+  MAVEN_CLI_OPTS: "--batch-mode"
+  DOCKER_TLS_CERTDIR: ""
 
 stages:
   - build
   - test
   - package
-  - deploy
+  - dockerize
+  - pages
 
 before_script:
   - echo "Running CI/CD pipeline for Spring Boot Gym HTML App"
 
+# --------------------------
+# BUILD STAGE
+# --------------------------
 build:
   stage: build
   image: maven:3.9.4-eclipse-temurin-17
   script:
-    - mvn --batch-mode clean compile
+    - mvn $MAVEN_CLI_OPTS clean compile
   only:
     - main
 
+# --------------------------
+# TEST STAGE
+# --------------------------
 test:
   stage: test
   image: maven:3.9.4-eclipse-temurin-17
   script:
-    - mvn --batch-mode test
+    - mvn $MAVEN_CLI_OPTS test
   only:
     - main
 
+# --------------------------
+# PACKAGE STAGE
+# --------------------------
 package:
   stage: package
   image: maven:3.9.4-eclipse-temurin-17
   script:
-    - mvn --batch-mode package
+    - mvn $MAVEN_CLI_OPTS package
   artifacts:
     paths:
       - target/*.jar
   only:
     - main
 
-deploy:
-  stage: deploy
+# --------------------------
+# DOCKERIZE AND PUSH
+# --------------------------
+dockerize:
+  stage: dockerize
   image: docker:latest
   services:
     - docker:dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
   script:
-    - docker build -t gym-app .
-    - docker run -d -p 8080:8080 --name gym-app gym-app
-    - echo "Waiting for app to start..."
-    - for i in {1..30}; do
-        curl --fail http://localhost:8080 && echo "App is up!" && break || sleep 2;
-      done || (echo "App failed to start" && docker logs gym-app && exit 1)
+    - docker build -t "$CI_REGISTRY_IMAGE:latest" .
+    - docker push "$CI_REGISTRY_IMAGE:latest"
   only:
     - main
 
+# --------------------------
+# GITLAB PAGES FOR STATIC HTML
+# --------------------------
+pages:
+  stage: pages
+  script:
+    - mkdir .public
+    - cp -r src/main/resources/static/* .public/
+    - mv .public public
+  artifacts:
+    paths:
+      - public
+  only:
+    - main

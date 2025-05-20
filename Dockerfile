@@ -1,11 +1,8 @@
-FROM eclipse-temurin:17-jdk AS build
-
-# Optional: If building the JAR inside Docker
-# COPY . /app
-# WORKDIR /app
-# RUN ./mvnw clean package -DskipTests
-
+# Use Eclipse Temurin base image for Java 17
 FROM eclipse-temurin:17-jdk
-VOLUME /tmp
+
+# Copy the JAR built by Maven
 COPY target/*.jar app.jar
+
+# Run the Spring Boot app
 ENTRYPOINT ["java", "-jar", "/app.jar"]
