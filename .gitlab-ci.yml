@@ -45,9 +45,13 @@ package:
 deploy:
   stage: deploy
   script:
-    - echo "Starting deployment..."
-    - java -jar target/*.jar &
-    - sleep 10
-    - curl --fail http://localhost:8080 || (echo "Deployment failed" && exit 1)
+    - echo "Starting Spring Boot app in test mode..."
+    - mvn $MAVEN_CLI_OPTS spring-boot:start > app.log 2>&1 &
+    - echo "Waiting for app to start..."
+    - for i in {1..30}; do
+        curl --fail http://localhost:8080 && echo "App is up!" && break || sleep 2;
+      done || (echo "App failed to start" && cat app.log && exit 1)
+    - echo "App started successfully"
+    - mvn $MAVEN_CLI_OPTS spring-boot:stop
   only:
     - main
