@@ -1,51 +1,55 @@
-image: 'maven:3.9.4-eclipse-temurin-17'
+image: docker:latest
+
+services:
+  - docker:dind
+
+variables:
+  DOCKER_DRIVER: overlay2
+
 stages:
   - build
   - test
   - package
   - deploy
-variables:
-  MAVEN_CLI_OPTS: '--batch-mode'
+
 before_script:
   - echo "Running CI/CD pipeline for Spring Boot Gym HTML App"
-cache:
-  key: maven-cache
-  paths:
-    - /root/.m2/repository/
+
 build:
   stage: build
+  image: maven:3.9.4-eclipse-temurin-17
   script:
-    - 'mvn $MAVEN_CLI_OPTS dependency:go-offline'
-    - mvn $MAVEN_CLI_OPTS clean compile
+    - mvn --batch-mode clean compile
   only:
     - main
+
 test:
   stage: test
+  image: maven:3.9.4-eclipse-temurin-17
   script:
-    - mvn $MAVEN_CLI_OPTS test
+    - mvn --batch-mode test
   only:
     - main
+
 package:
   stage: package
+  image: maven:3.9.4-eclipse-temurin-17
   script:
-    - mvn $MAVEN_CLI_OPTS package
+    - mvn --batch-mode package
   artifacts:
     paths:
       - target/*.jar
   only:
     - main
+
 deploy:
   stage: deploy
   script:
-    - echo "Starting Spring Boot app..."
-    - 'mvn $MAVEN_CLI_OPTS spring-boot:start &'
-    - sleep 10
-    - echo "Checking if app is up..."
-    - >-
-      for i in {1..30}; do if curl --silent --fail http://localhost:8080; then
-      echo "App is up!" break else echo "Waiting for app..." sleep 2 fi done ||
-      (echo "App failed to start"; cat app.log; exit 1)
-    - echo "App started successfully"
-    - 'mvn $MAVEN_CLI_OPTS spring-boot:stop'
+    - docker build -t gym-app .
+    - docker run -d -p 8080:8080 --name gym-app gym-app
+    - echo "Waiting for app to start..."
+    - for i in {1..30}; do
+        curl --fail http://localhost:8080 && echo "App is up!" && break || sleep 2;
+      done || (echo "App failed to start" && docker logs gym-app && exit 1)
   only:
     - main
