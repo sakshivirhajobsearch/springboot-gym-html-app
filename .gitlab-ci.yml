@@ -1,49 +1,53 @@
+image: maven:3.9.4-eclipse-temurin-17
+
 stages:
   - build
   - test
-  - docker
+  - package
+  - deploy
 
-# Build JAR using Maven
-build_job:
+variables:
+  MAVEN_CLI_OPTS: "--batch-mode"
+
+before_script:
+  - echo "Running CI/CD pipeline for Spring Boot Gym HTML App"
+
+cache:
+  key: maven-cache
+  paths:
+    - /root/.m2/repository/
+
+build:
   stage: build
-  image: maven:3.8.7-eclipse-temurin-17
   script:
-    - mvn clean package -DskipTests
+    - mvn $MAVEN_CLI_OPTS dependency:go-offline
+    - mvn $MAVEN_CLI_OPTS clean compile
+  only:
+    - main
+
+test:
+  stage: test
+  script:
+    - mvn $MAVEN_CLI_OPTS test
+  only:
+    - main
+
+package:
+  stage: package
+  script:
+    - mvn $MAVEN_CLI_OPTS package
   artifacts:
     paths:
       - target/*.jar
+  only:
+    - main
 
-# Run unit tests
-test_job:
-  stage: test
-  image: maven:3.8.7-eclipse-temurin-17
+deploy:
+  stage: deploy
   script:
-    - mvn test
-
-# Build and push Docker image
-docker_build_push:
-  stage: docker
-  image: docker:latest
-  services:
-    - docker:dind
-  variables:
-    DOCKER_TLS_CERTDIR: ""
-  before_script:
-    - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
-  script:
-    - docker build -t "$DOCKER_USERNAME/springboot-gym-html-app" .
-    - docker push "$DOCKER_USERNAME/springboot-gym-html-app"
-
-# Validate Docker image by running container and curl test
-docker_validate:
-  stage: docker
-  image: docker:latest
-  services:
-    - docker:dind
-  variables:
-    DOCKER_TLS_CERTDIR: ""
-  script:
-    - docker rm -f gym-app || true
-    - docker run -d -p 8080:8080 --name gym-app "$DOCKER_USERNAME/springboot-gym-html-app"
-    - sleep 15
-    - curl --fail http://localhost:8080 || (docker logs gym-app && exit 1)
+    - echo "Starting deployment..."
+    - java -jar target/*.jar &
+    - sleep 10
+    - curl --fail http://localhost:8080 || (echo "Deployment failed" && exit 1)
+  only:
+    - main
