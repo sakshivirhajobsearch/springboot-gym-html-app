@@ -33,12 +33,6 @@ jobs:
     - name: Run Unit Tests
       run: mvn test
 
-    - name: Upload JAR Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: springboot-app
-        path: target/*.jar
-
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
