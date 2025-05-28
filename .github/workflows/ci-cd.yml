@@ -5,7 +5,6 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:  # Allows manual trigger
 
 jobs:
   build_and_docker:
@@ -28,14 +27,11 @@ jobs:
         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-maven
 
-    - name: Run Unit Tests
-      run: mvn test
-
     - name: Build with Maven (skip tests for packaging)
       run: mvn clean package -DskipTests
 
-    - name: Set Docker image tag
-      run: echo "IMAGE_TAG=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+    - name: Run Unit Tests
+      run: mvn test
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -48,13 +44,28 @@ jobs:
 
     - name: Build and Push Docker image
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app:${{ env.IMAGE_TAG }} .
-        docker push ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app:${{ env.IMAGE_TAG }}
+        # Rename the jar to a consistent name if needed
+        JAR_FILE=$(ls target/*.jar | head -n 1)
+        cp "$JAR_FILE" target/app.jar
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app .
+        docker push ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app
 
-    - name: Run container for validation (optional/local use only)
+    - name: Run container for validation (self-hosted only)
       if: runner.os == 'Linux'
       run: |
         docker rm -f gym-app || true
-        docker run -d -p 8080:8080 --name gym-app ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app:${{ env.IMAGE_TAG }}
-        sleep 15
-        curl --fail http://localhost:8080 || (echo "App not reachable" && docker logs gym-app && exit 1)
+        docker run -d -p 8080:8080 --name gym-app ${{ secrets.DOCKER_USERNAME }}/springboot-gym-html-app
+
+        echo "Waiting for app to be ready..."
+        for i in {1..15}; do
+          if curl --fail http://localhost:8080; then
+            echo "App is up!"
+            exit 0
+          fi
+          echo "Retrying ($i)..."
+          sleep 5
+        done
+
+        echo "App not reachable after retries. Dumping logs:"
+        docker logs gym-app
+        exit 1
